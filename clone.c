@@ -46,7 +46,7 @@ char *filename(char*);
 Dir *mkdir(char*, Dir*, int);
 int same(Dir*, Dir*);
 void clone(char*, char*);
-void cloneattr(char*, Dir*);
+void cloneattr(int, Dir*);
 void clonedir(char*, char*);
 void clonefile(File*);
 File *filenew(char*, char*, Dir*);
@@ -122,6 +122,7 @@ mkdir(char *name, Dir *d, int dostat)
 	fd = create(name, 0, d->mode | 0200);
 	if(fd < 0)
 		error("can't create destination directory");
+	cloneattr(fd, d);
 	if(dostat){
 		dd = dirfstat(fd);
 		if(dd == nil)
@@ -132,7 +133,7 @@ mkdir(char *name, Dir *d, int dostat)
 }
 
 void
-cloneattr(char *name, Dir *d)
+cloneattr(int fd, Dir *d)
 {
 	Dir dd;
 
@@ -147,7 +148,7 @@ cloneattr(char *name, Dir *d)
 		dd.uid = d->uid;
 	if(keepgroup)
 		dd.gid = d->gid;
-	if(dirwstat(name, &dd) < 0)
+	if(dirfwstat(fd, &dd) < 0)
 		error("can't wstat");
 }
 
@@ -225,7 +226,6 @@ clone(char *src, char *dst)
 		dst = smprint("%s/%s", dst, filename(src));
 	skipdir = mkdir(dst, sd, 1);
 	clonedir(src, dst);
-	cloneattr(dst, sd);
 }
 
 void
@@ -254,7 +254,6 @@ clonedir(char *src, char *dst)
 		if(d->mode & DMDIR){
 			mkdir(dn, d, 0);
 			clonedir(sn, dn);
-			cloneattr(dn, d);
 		}else{
 			f = filenew(sn, dn, d);
 			sendp(filechan, f);
@@ -374,7 +373,7 @@ fileproc(void *)
 			error("fileproc: can't create");
 
 		clonefile(f);
-		cloneattr(f->dst, f);
+		cloneattr(f->dfd, f);
 		filefree(f);
 	}
 }
