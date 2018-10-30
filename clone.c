@@ -135,7 +135,7 @@ chmod(char *name, ulong mode)
 	Dir d;
 
 	nulldir(&d);
-	d.mode = mode | 0200;
+	d.mode = mode;
 	if(dirwstat(name, &d) < 0)
 		error("can't wstat");
 }
@@ -240,7 +240,7 @@ clonedir(char *src, char *dst)
 			mkdir(dn, d, 0);
 			clonedir(sn, dn);
 			if(keepmode)
-				chmod(dn, d->mode);
+				chmod(dn, d->mode | 0200);
 		}else{
 			f = filenew(sn, dn, d);
 			sendp(filechan, f);
