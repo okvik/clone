@@ -383,7 +383,7 @@ void
 threadmain(int argc, char *argv[])
 {
 	int i;
-	char *src, *dst, *p;
+	char *dst, *p;
 
 	ARGBEGIN{
 	case 'b':
@@ -406,8 +406,7 @@ threadmain(int argc, char *argv[])
 	}ARGEND;
 	if(argc < 2)
 		usage();
-	src = argv[0];
-	dst = argv[1];
+	dst = argv[argc - 1];
 
 	filechan = chancreate(sizeof(File*), fileprocs);
 	blkchan = chancreate(sizeof(Blk*), blkprocs);
@@ -417,7 +416,8 @@ threadmain(int argc, char *argv[])
 	for(i = 0; i < blkprocs; i++)
 		proccreate(blkproc, nil, mainstacksize);
 
-	clone(src, dst);
+	for(i = 0; i < argc -1; i++)
+		clone(argv[i], dst);
 
 	for(i = 0; i < fileprocs; i++){
 		sendp(filechan, nil);
