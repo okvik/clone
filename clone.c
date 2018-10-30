@@ -13,10 +13,9 @@ enum {
 };
 
 typedef struct {
+	Dir;
 	char *src, *dst;
 	int sfd, dfd;
-	ulong mode;
-	vlong length;
 	Channel *c;
 } File;
 
@@ -26,6 +25,9 @@ typedef struct {
 } Blk;
 
 int keepmode = 0;
+int keepmtime = 0;
+int keepuser = 0;
+int keepgroup = 0;
 int blksz = Blksz;
 int fileprocs = Nfileprocs;
 int blkprocs = Nblkprocs;
@@ -42,9 +44,9 @@ char *estrdup(char*);
 
 char *filename(char*);
 Dir *mkdir(char*, Dir*, int);
-void chmod(char*, ulong);
 int same(Dir*, Dir*);
 void clone(char*, char*);
+void cloneattr(char*, Dir*);
 void clonedir(char*, char*);
 void clonefile(File*);
 File *filenew(char*, char*, Dir*);
@@ -80,7 +82,7 @@ emalloc(ulong n)
 
 	p = malloc(n);
 	if(p == nil)
-		error("out of memory");
+		error("malloc");
 	return p;
 }
 
@@ -91,7 +93,7 @@ estrdup(char *s)
 
 	p = strdup(s);
 	if(p == nil)
-		error("out of memory");
+		error("strdup");
 	return p;
 }
 
@@ -130,13 +132,22 @@ mkdir(char *name, Dir *d, int dostat)
 }
 
 void
-chmod(char *name, ulong mode)
+cloneattr(char *name, Dir *d)
 {
-	Dir d;
+	Dir dd;
 
-	nulldir(&d);
-	d.mode = mode;
-	if(dirwstat(name, &d) < 0)
+	if(!(keepmode || keepuser || keepgroup || keepmtime))
+		return;
+	nulldir(&dd);
+	if(keepmode)
+		dd.mode = d->mode & DMDIR ? d->mode|0200 : d->mode;
+	if(keepmtime)
+		dd.mtime = d->mtime;
+	if(keepuser)
+		dd.uid = d->uid;
+	if(keepgroup)
+		dd.gid = d->gid;
+	if(dirwstat(name, &dd) < 0)
 		error("can't wstat");
 }
 
@@ -158,10 +169,11 @@ filenew(char *src, char *dst, Dir *d)
 	File *f;
 
 	f = emalloc(sizeof(File));
+	memmove(f, d, sizeof(Dir));
+	f->uid = estrdup(d->uid);
+	f->gid = estrdup(d->gid);
 	f->src = estrdup(src);
 	f->dst = estrdup(dst);
-	f->mode = d->mode;
-	f->length = d->length;
 	f->sfd = -1;
 	f->dfd = -1;
 	f->c = nil;
@@ -176,6 +188,8 @@ filefree(File *f)
 		close(f->sfd);
 	if(f->dfd >= 0)
 		close(f->dfd);
+	free(f->uid);
+	free(f->gid);
 	free(f->src);
 	free(f->dst);
 	free(f);
@@ -211,6 +225,7 @@ clone(char *src, char *dst)
 		dst = smprint("%s/%s", dst, filename(src));
 	skipdir = mkdir(dst, sd, 1);
 	clonedir(src, dst);
+	cloneattr(dst, sd);
 }
 
 void
@@ -239,8 +254,7 @@ clonedir(char *src, char *dst)
 		if(d->mode & DMDIR){
 			mkdir(dn, d, 0);
 			clonedir(sn, dn);
-			if(keepmode)
-				chmod(dn, d->mode | 0200);
+			cloneattr(dn, d);
 		}else{
 			f = filenew(sn, dn, d);
 			sendp(filechan, f);
@@ -360,8 +374,7 @@ fileproc(void *)
 			error("fileproc: can't create");
 
 		clonefile(f);
-		if(keepmode)
-			chmod(f->dst, f->mode);
+		cloneattr(f->dst, f);
 		filefree(f);
 	}
 }
@@ -381,8 +394,14 @@ threadmain(int argc, char *argv[])
 		*p++ = 0;
 		blkprocs = strtol(p, nil, 0);
 		break;
-	case 'm':
-		keepmode = 1;
+	case 'x':
+		keepmode = keepmtime = 1;
+		break;
+	case 'u':
+		keepuser = 1;
+		break;
+	case 'g':
+		keepgroup = 1;
 		break;
 	}ARGEND;
 	if(argc < 2)
