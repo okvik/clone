@@ -38,7 +38,7 @@ Channel *blkchan; /* chan(Blk*) */
 Channel *endchan; /* chan(ulong) */
 
 void usage(void);
-void error(char*, ...);
+void sysfatal(char*, ...);
 void *emalloc(ulong);
 char *estrdup(char*);
 
@@ -59,20 +59,7 @@ void
 usage(void)
 {
 	fprint(2, "%s src dst\n", argv0);
-	error("usage");
-}
-
-void
-error(char *fmt, ...)
-{
-	va_list arg;
-	char err[ERRMAX];
-
-	snprint(err, sizeof err, "%s: %s: %r\n", argv0, fmt);
-	va_start(arg, fmt);
-	vfprint(2, err, arg);
-	va_end(arg);
-	threadexitsall(err);
+	sysfatal("usage");
 }
 
 void *
@@ -82,7 +69,7 @@ emalloc(ulong n)
 
 	p = malloc(n);
 	if(p == nil)
-		error("malloc");
+		sysfatal("malloc");
 	return p;
 }
 
@@ -93,7 +80,7 @@ estrdup(char *s)
 
 	p = strdup(s);
 	if(p == nil)
-		error("strdup");
+		sysfatal("strdup");
 	return p;
 }
 
@@ -121,12 +108,12 @@ mkdir(char *name, Dir *d, int dostat)
 	dd = nil;
 	fd = create(name, 0, d->mode | 0200);
 	if(fd < 0)
-		error("can't create destination directory");
+		sysfatal("can't create destination directory");
 	cloneattr(fd, d);
 	if(dostat){
 		dd = dirfstat(fd);
 		if(dd == nil)
-			error("can't stat");
+			sysfatal("can't stat");
 	}
 	close(fd);
 	return dd;
@@ -149,7 +136,7 @@ cloneattr(int fd, Dir *d)
 	if(keepgroup)
 		dd.gid = d->gid;
 	if(dirfwstat(fd, &dd) < 0)
-		error("can't wstat");
+		sysfatal("can't wstat");
 }
 
 int
@@ -204,12 +191,12 @@ clone(char *src, char *dst)
 	
 	sd = dirstat(src);
 	if(sd == nil)
-		error("can't stat");
+		sysfatal("can't stat");
 	dd = nil;
 	if(access(dst, AEXIST) >= 0){
 		dd = dirstat(dst);
 		if(dd == nil)
-			error("can't stat");
+			sysfatal("can't stat");
 	}
 	
 	/* clone a file */
@@ -239,10 +226,10 @@ clonedir(char *src, char *dst)
 
 	fd = open(src, OREAD);
 	if(fd < 0)
-		error("can't open");
+		sysfatal("can't open");
 	n = dirreadall(fd, &dirs);
 	if(n < 0)
-		error("can't read directory");
+		sysfatal("can't read directory");
 	close(fd);
 
 	for(d = dirs; n; n--, d++){
@@ -341,10 +328,10 @@ blkproc(void *)
 		dfd = b->f->dfd;
 		off = b->offset;
 		if((n = pread(sfd, buf, blksz, off)) < 0)
-			error("blkproc: read error");
+			sysfatal("blkproc: read error");
 		if(n > 0)
 			if(pwrite(dfd, buf, n, off) < n)
-				error("blkproc: write error");
+				sysfatal("blkproc: write error");
 
 		sendul(b->f->c, Blkdone);
 	}
@@ -367,10 +354,10 @@ fileproc(void *)
 		f->c = c;
 		f->sfd = open(f->src, OREAD);
 		if(f->sfd < 0)
-			error("fileproc: can't open");
+			sysfatal("fileproc: can't open");
 		f->dfd = create(f->dst, OWRITE, f->mode);
 		if(f->dfd < 0)
-			error("fileproc: can't create");
+			sysfatal("fileproc: can't create");
 
 		clonefile(f);
 		cloneattr(f->dfd, f);
