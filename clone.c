@@ -38,7 +38,6 @@ Channel *blkchan; /* chan(Blk*) */
 Channel *endchan; /* chan(ulong) */
 
 void usage(void);
-void sysfatal(char*, ...);
 void *emalloc(ulong);
 char *estrdup(char*);
 
@@ -58,7 +57,7 @@ void blkproc(void*);
 void
 usage(void)
 {
-	fprint(2, "%s src dst\n", argv0);
+	fprint(2, "usage: %s [-gux] [-b blocksize] [-p fileprocs:blockprocs] from ... to\n", argv0);
 	sysfatal("usage");
 }
 
