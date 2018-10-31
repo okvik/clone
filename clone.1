@@ -1,0 +1,106 @@
+.TH CLONE 1
+.SH NAME
+clone \- copy files and directories
+.SH SYNOPSYS
+.B clone
+[
+.B -gux
+]
+[
+.B -b
+.I blocksize
+]
+[
+.B -p
+.I fileprocs:blockprocs
+]
+.I from ... to
+.SH DESCRIPTION
+.I Clone
+copies files and directories.
+Similar in spirit to
+.IR fcp(1)
+it is a multi-process program which
+relies on
+.IR pread(2)
+and
+.IR pwrite(2)
+system calls to copy multiple blocks
+in parallel, speeding up the file transfer
+over high-latency links;
+in contrast to
+.IR fcp(1)
+it can copy both single files and directories,
+which may be mixed on the command line.
+.PP
+A single file is copied as expected. If
+.I to
+does not exist, it is created; otherwise, an
+existing file is overwritten; if
+.I to
+is a directory,
+.I from
+is copied into it.
+A single directory is copied into
+.I to
+if it exists; otherwise, a new directory
+.I to
+is created and the contents of
+.I from
+are copied into it.
+If multiple source files (directories) are given,
+they are copied into the
+.I to
+directory, which is created if neccessary.
+.PP
+The
+.I -x
+option sets the mode and modified time of the
+destination file (directory) to that of the source
+file (directory); the
+.I -g
+and
+.I -u
+try to set the group and user id, respectively.
+.PP
+The
+.I -b
+option determines the size of a block that
+will be transfered by a single block transfer
+process (defaults to 128k).
+.PP
+The
+.I -p
+option determines the process parallelism
+configuration, with
+.I fileprocs
+being the number of processes that handle
+simultaneous file transfers, and
+.I blockprocs
+being the number of processes that do the
+actual input / output (defaults to 4:16).
+.PP
+.SH SOURCE
+.B https://bitbucket.org/k-vik/clone
+.SH SEE ALSO
+.IR fcp(1),
+.IR dircp(1),
+.IR pread(2),
+.IR pwrite(2)
+.SH BUGS
+No graceful error handling.
+An error encountered while copying a
+single file will simply axe all the
+.I clone
+processes, most certainly resulting in
+chaos. If there was an error, remove
+the destination and start all over again.
+.PP
+Preserving the modification time of
+directories does not work. Attributes are
+cloned at directory creation time; meaning, if
+there's files to be copied in this directory,
+this will update the parent modification
+time. Furthermore, all directories get the
+forced write permission, since not having
+one would mean no new file creation.
