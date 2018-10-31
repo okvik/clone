@@ -24,6 +24,7 @@ typedef struct {
 	vlong offset;
 } Blk;
 
+int multisrc = 0;
 int keepmode = 0;
 int keepmtime = 0;
 int keepuser = 0;
@@ -189,15 +190,18 @@ clone(char *src, char *dst)
 	File *f;
 	
 	sd = dirstat(src);
-	if(sd == nil)
-		sysfatal("can't stat");
+	if(sd == nil){
+		fprint(2, "clone: can't stat: %r\n");
+		return;
+	}
 	dd = nil;
 	if(access(dst, AEXIST) >= 0){
 		dd = dirstat(dst);
 		if(dd == nil)
 			sysfatal("can't stat");
-	}
-	
+	}else if(multisrc)
+		dd = skipdir = mkdir(dst, sd, 1);
+
 	/* clone a file */
 	if(!(sd->mode & DMDIR)){
 		if(dd && dd->mode & DMDIR)
@@ -210,7 +214,10 @@ clone(char *src, char *dst)
 	/* clone a directory */
 	if(dd)
 		dst = smprint("%s/%s", dst, filename(src));
-	skipdir = mkdir(dst, sd, 1);
+	if(skipdir)
+		mkdir(dst, sd, 0);
+	else
+		skipdir = mkdir(dst, sd, 1);
 	clonedir(src, dst);
 }
 
@@ -391,6 +398,8 @@ threadmain(int argc, char *argv[])
 	}ARGEND;
 	if(argc < 2)
 		usage();
+	if(argc > 2)
+		multisrc = 1;
 	dst = argv[argc - 1];
 
 	filechan = chancreate(sizeof(File*), fileprocs);
