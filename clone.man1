@@ -78,7 +78,7 @@ being the number of processes that handle
 simultaneous file transfers, and
 .I blockprocs
 being the number of processes that do the
-actual input / output (defaults to 4:16).
+input / output (defaults to 4:16).
 .PP
 .SH SOURCE
 .B https://bitbucket.org/k-vik/clone
