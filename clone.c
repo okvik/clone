@@ -103,13 +103,16 @@ Dir *
 mkdir(char *name, Dir *d, int dostat)
 {
 	int fd;
+	Dir dn;
 	Dir *dd;
 
 	dd = nil;
-	fd = create(name, 0, d->mode | 0200);
+	dn = *d;
+	dn.mode = dn.mode | DMDIR | 0200;
+	fd = create(name, 0, dn.mode);
 	if(fd < 0)
 		sysfatal("can't create destination directory: %r");
-	cloneattr(fd, d);
+	cloneattr(fd, &dn);
 	if(dostat){
 		dd = dirfstat(fd);
 		if(dd == nil)
