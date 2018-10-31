@@ -118,26 +118,6 @@ mkdir(char *name, Dir *d, int dostat)
 	return dd;
 }
 
-void
-cloneattr(int fd, Dir *d)
-{
-	Dir dd;
-
-	if(!(keepmode || keepuser || keepgroup || keepmtime))
-		return;
-	nulldir(&dd);
-	if(keepmode)
-		dd.mode = d->mode & DMDIR ? d->mode|0200 : d->mode;
-	if(keepmtime)
-		dd.mtime = d->mtime;
-	if(keepuser)
-		dd.uid = d->uid;
-	if(keepgroup)
-		dd.gid = d->gid;
-	if(dirfwstat(fd, &dd) < 0)
-		sysfatal("can't wstat");
-}
-
 int
 same(Dir *a, Dir *b)
 {
@@ -180,6 +160,26 @@ filefree(File *f)
 	free(f->src);
 	free(f->dst);
 	free(f);
+}
+
+void
+cloneattr(int fd, Dir *d)
+{
+	Dir dd;
+
+	if(!(keepmode || keepuser || keepgroup || keepmtime))
+		return;
+	nulldir(&dd);
+	if(keepmode)
+		dd.mode = d->mode & DMDIR ? d->mode|0200 : d->mode;
+	if(keepmtime)
+		dd.mtime = d->mtime;
+	if(keepuser)
+		dd.uid = d->uid;
+	if(keepgroup)
+		dd.gid = d->gid;
+	if(dirfwstat(fd, &dd) < 0)
+		sysfatal("can't wstat");
 }
 
 void
