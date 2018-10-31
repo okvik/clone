@@ -69,7 +69,7 @@ emalloc(ulong n)
 
 	p = malloc(n);
 	if(p == nil)
-		sysfatal("malloc");
+		sysfatal("malloc: %r");
 	return p;
 }
 
@@ -80,7 +80,7 @@ estrdup(char *s)
 
 	p = strdup(s);
 	if(p == nil)
-		sysfatal("strdup");
+		sysfatal("strdup: %r");
 	return p;
 }
 
@@ -108,12 +108,12 @@ mkdir(char *name, Dir *d, int dostat)
 	dd = nil;
 	fd = create(name, 0, d->mode | 0200);
 	if(fd < 0)
-		sysfatal("can't create destination directory");
+		sysfatal("can't create destination directory: %r");
 	cloneattr(fd, d);
 	if(dostat){
 		dd = dirfstat(fd);
 		if(dd == nil)
-			sysfatal("can't stat");
+			sysfatal("can't stat: %r");
 	}
 	close(fd);
 	return dd;
@@ -180,7 +180,7 @@ cloneattr(int fd, Dir *d)
 	if(keepgroup)
 		dd.gid = d->gid;
 	if(dirfwstat(fd, &dd) < 0)
-		sysfatal("can't wstat");
+		sysfatal("can't wstat: %r");
 }
 
 void
@@ -198,7 +198,7 @@ clone(char *src, char *dst)
 	if(access(dst, AEXIST) >= 0){
 		dd = dirstat(dst);
 		if(dd == nil)
-			sysfatal("can't stat");
+			sysfatal("can't stat: %r");
 	}else if(multisrc)
 		dd = skipdir = mkdir(dst, sd, 1);
 
@@ -232,10 +232,10 @@ clonedir(char *src, char *dst)
 
 	fd = open(src, OREAD);
 	if(fd < 0)
-		sysfatal("can't open");
+		sysfatal("can't open: %r");
 	n = dirreadall(fd, &dirs);
 	if(n < 0)
-		sysfatal("can't read directory");
+		sysfatal("can't read directory: %r");
 	close(fd);
 
 	for(d = dirs; n; n--, d++){
@@ -334,10 +334,10 @@ blkproc(void *)
 		dfd = b->f->dfd;
 		off = b->offset;
 		if((n = pread(sfd, buf, blksz, off)) < 0)
-			sysfatal("blkproc: read error");
+			sysfatal("blkproc: read error: %r");
 		if(n > 0)
 			if(pwrite(dfd, buf, n, off) < n)
-				sysfatal("blkproc: write error");
+				sysfatal("blkproc: write error: %r");
 
 		sendul(b->f->c, Blkdone);
 	}
@@ -360,10 +360,10 @@ fileproc(void *)
 		f->c = c;
 		f->sfd = open(f->src, OREAD);
 		if(f->sfd < 0)
-			sysfatal("fileproc: can't open");
+			sysfatal("fileproc: can't open: %r");
 		f->dfd = create(f->dst, OWRITE, f->mode);
 		if(f->dfd < 0)
-			sysfatal("fileproc: can't create");
+			sysfatal("fileproc: can't create: %r");
 
 		clonefile(f);
 		cloneattr(f->dfd, f);
