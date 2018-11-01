@@ -36,7 +36,6 @@ int blksz = Blksz;
 int fileprocs = Nfileprocs;
 int blkprocs = Nblkprocs;
 Dir *skipdir;
-WaitGroup filewg;
 
 Channel *filechan; /* chan(File*) */
 Channel *blkchan; /* chan(Blk*) */
@@ -94,11 +93,11 @@ estrdup(char *s)
 }
 
 void
-wginit(WaitGroup *wg, long count)
+wginit(WaitGroup *wg, long n)
 {
 	memset(wg, 0, sizeof(*wg));
 	wg->l = &wg->QLock;
-	if(cas(&wg->ref, 0, count) == 0)
+	if(cas(&wg->ref, 0, n) == 0)
 		sysfatal("wginit: cas failed");
 }
 
@@ -258,7 +257,6 @@ clone(char *src, char *dst)
 			dst = smprint("%s/%s", dst, filename(src));
 		f = filenew(src, dst, sd);
 		sendp(filechan, f);
-		wgadd(&filewg, 1);
 		return;
 	}
 
@@ -301,7 +299,6 @@ clonedir(char *src, char *dst)
 		}else{
 			f = filenew(sn, dn, d);
 			sendp(filechan, f);
-			wgadd(&filewg, 1);
 		}
 		free(sn);
 		free(dn);
@@ -342,7 +339,7 @@ clonefile(File *f)
 	n = blklist(f, &blks);
 	if(n == 0)
 		return;
-	wgadd(&f->wg, n);
+	wginit(&f->wg, n);
 	for(b = blks, be = b + n; b != be; b++)
 		sendp(blkchan, b);
 	wgwait(&f->wg);
@@ -377,16 +374,16 @@ blkproc(void *)
 }
 
 void
-fileproc(void *)
+fileproc(void *v)
 {
 	File *f;
+	WaitGroup *wg;
 	
+	wg = v;
 	for(;;){
 		f = recvp(filechan);
 		if(f == nil)
-			return;
-
-		wginit(&f->wg, 0);
+			break;
 
 		f->sfd = open(f->src, OREAD);
 		if(f->sfd < 0)
@@ -398,8 +395,8 @@ fileproc(void *)
 		clonefile(f);
 		cloneattr(f->dfd, f);
 		filefree(f);
-		wgdone(&filewg);
 	}
+	wgdone(wg);
 }
 
 void
@@ -407,6 +404,7 @@ threadmain(int argc, char *argv[])
 {
 	int i;
 	char *dst, *p;
+	WaitGroup filewg;
 
 	ARGBEGIN{
 	case 'b':
@@ -432,17 +430,18 @@ threadmain(int argc, char *argv[])
 	if(argc > 2)
 		multisrc = 1;
 	dst = argv[argc - 1];
-
+	
 	filechan = chancreate(sizeof(File*), fileprocs);
 	blkchan = chancreate(sizeof(Blk*), blkprocs);
+	wginit(&filewg, fileprocs);
 	for(i = 0; i < fileprocs; i++)
-		proccreate(fileproc, nil, mainstacksize);
+		proccreate(fileproc, &filewg, mainstacksize);
 	for(i = 0; i < blkprocs; i++)
 		proccreate(blkproc, nil, mainstacksize);
 
-	wginit(&filewg, 0);
 	for(i = 0; i < argc -1; i++)
 		clone(argv[i], dst);
+	chanclose(filechan);
 	wgwait(&filewg);
 
 	threadexitsall(nil);
