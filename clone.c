@@ -114,22 +114,21 @@ wgadd(WaitGroup *wg, long n)
 void
 wgdone(WaitGroup *wg)
 {
-	if(decref(wg) < 0)
-		sysfatal("wgdone: negative WaitGroup count");
-	qlock(wg);
-	rwakeupall(wg);
-	qunlock(wg);
+	if(decref(wg) == 0){
+		qlock(wg);
+		rwakeupall(wg);
+		qunlock(wg);
+	}
 }
 
 void
 wgwait(WaitGroup *wg)
 {
 	qlock(wg);
-	while(!(wg->ref == 0))
+	while(wg->ref != 0)
 		rsleep(wg);
 	qunlock(wg);
 }
-
 
 char *
 filename(char *s)
