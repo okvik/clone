@@ -88,14 +88,6 @@ input / output (defaults to 4:16).
 .IR pread(2),
 .IR pwrite(2)
 .SH BUGS
-No graceful error handling.
-An error encountered while copying a
-single file will simply axe all the
-.I clone
-processes, most certainly resulting in
-chaos. If there was an error, remove
-the destination and start all over again.
-.PP
 Preserving the modification time of
 directories does not work. Attributes are
 cloned at directory creation time; meaning, if
