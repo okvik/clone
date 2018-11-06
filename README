@@ -52,9 +52,6 @@
           work. Attributes are cloned at directory creation time;
           meaning, if there's files to be copied in this directory,
           this will update the parent modification time. Furthermore,
-
-     CLONE(1)                                                 CLONE(1)
-
           all directories get the forced write permission, since not
           having one would mean no new file creation.
 
