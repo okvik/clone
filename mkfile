@@ -3,15 +3,21 @@
 TARG=clone
 OFILES=clone.$O
 BIN=/$objtype/bin
+MAN=/sys/man/1
 
 </sys/src/cmd/mkone
 
 README:
-	troff -man -N -rL1000i clone.man1 | ssam 'x/\n\n\n+/c/\n\n/' >README
+	troff -man -N -rL1000i clone.man | ssam 'x/\n\n\n+/c/\n\n/' >README
+	
+all: README
 
-install:V:
-	cp clone.man1 /sys/man/1/clone
+install:V: man
 
 uninstall:V:
 	rm -f $BIN/$TARG
-	rm -f /sys/man/1/clone
+	rm -f $MAN/$TARG
+
+release:V: clean
+	tag=`{hg tags|awk 'NR==2{print $1}'}
+	tar c . | gzip >/tmp/$TARG.$tag.tgz
