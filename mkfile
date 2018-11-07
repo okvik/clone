@@ -3,7 +3,6 @@
 TARG=clone
 OFILES=clone.$O
 BIN=/$objtype/bin
-MAN=/sys/man/1
 
 </sys/src/cmd/mkone
 
@@ -12,11 +11,14 @@ README:
 	
 all: README
 
-install:V: clone.man
+manpage:V:
+	cp clone.man /sys/man/1/clone
+
+install:V: manpage
 
 uninstall:V:
 	rm -f $BIN/$TARG
-	rm -f $MAN/$TARG
+	rm -f /sys/man/1/clone
 
 release:V: clean
 	tag=`{hg tags|awk 'NR==2{print $1}'}
