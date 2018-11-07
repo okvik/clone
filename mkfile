@@ -12,7 +12,7 @@ README:
 	
 all: README
 
-install:V: man
+install:V: clone.man
 
 uninstall:V:
 	rm -f $BIN/$TARG
