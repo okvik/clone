@@ -189,6 +189,7 @@ mkdir(char *src, char *dst, Dir *sd, Dir **dd)
 			return -1;
 		}
 	}
+	close(fd);
 	return 1;
 }
 
