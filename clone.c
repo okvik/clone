@@ -264,23 +264,25 @@ cloneattr(int fd, Dir *d)
 void
 clone(char *src, char *dst)
 {
+	char *dn;
 	Dir *sd, *dd;
 	File *f;
 	
+	dn = estrdup(dst);
 	dd = nil;
 	sd = dirstat(src);
 	if(sd == nil){
 		error("can't stat: %r");
 		return;
 	}
-	if(access(dst, AEXIST) >= 0){
-		dd = dirstat(dst);
+	if(access(dn, AEXIST) >= 0){
+		dd = dirstat(dn);
 		if(dd == nil){
 			error("can't stat: %r");
 			goto End;
 		}
 	}else if(multisrc){
-		if(mkdir(src, dst, sd, &dd) < 0)
+		if(mkdir(src, dn, sd, &dd) < 0)
 			goto End;
 		skipdir = dd;
 	}
@@ -288,27 +290,28 @@ clone(char *src, char *dst)
 	/* clone a file */
 	if(!(sd->mode & DMDIR)){
 		if(dd && dd->mode & DMDIR)
-			dst = smprint("%s/%s", dst, filename(src));
-		f = filenew(src, dst, sd);
+				dn = smprint("%s/%s", dn, filename(src));
+		f = filenew(src, dn, sd);
 		sendp(filechan, f);
 		goto End;
 	}
 
 	/* clone a directory */
 	if(dd)
-		dst = smprint("%s/%s", dst, filename(src));
+		dn = smprint("%s/%s", dn, filename(src));
 	if(skipdir){
-		if(mkdir(src, dst, sd, nil) < 0)
+		if(mkdir(src, dn, sd, nil) < 0)
 			goto End;
 	}else{
-		if(mkdir(src, dst, sd, &skipdir) < 0)
+		if(mkdir(src, dn, sd, &skipdir) < 0)
 			goto End;
 	}
-	clonedir(src, dst);
+	clonedir(src, dn);
 
 End:
-	if(dd) free(dst);
-	free(sd); free(dd);
+	free(dn);
+	free(sd);
+	free(dd);
 }
 
 void
@@ -422,6 +425,8 @@ blkproc(void *)
 	char *buf;
 	File *f;
 	Blk *b;
+	
+	threadsetname("blkproc");
 
 	buf = emalloc(blksz);
 	for(;;){
@@ -451,6 +456,8 @@ fileproc(void *v)
 {
 	File *f;
 	WaitGroup *wg;
+	
+	threadsetname("fileproc");
 	
 	wg = v;
 	for(;;){
