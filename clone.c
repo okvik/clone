@@ -69,7 +69,7 @@ void
 usage(void)
 {
 	fprint(2, "usage: %s [-gux] [-b blocksize] [-p fileprocs:blockprocs] from ... to\n", argv0);
-	sysfatal("usage");
+	exits("usage");
 }
 
 void
