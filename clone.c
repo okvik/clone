@@ -442,7 +442,7 @@ blkproc(void *)
 			error("can't read: %r");
 			sendul(f->errchan, ~0);
 		}
-		if(n > 0 && pwrite(dfd, buf, n, off) < n){
+		if(n > 0 && pwrite(dfd, buf, n, off) != n){
 			error("can't write: %r");
 			sendul(f->errchan, ~0);
 		}
