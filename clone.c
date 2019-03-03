@@ -25,6 +25,7 @@ typedef struct {
 
 typedef struct {
 	File *f;
+	long sz;
 	vlong offset;
 } Blk;
 
@@ -361,22 +362,27 @@ clonedir(char *src, char *dst)
 vlong
 blklist(File *f, Blk **bp)
 {
+	long odd;
 	vlong i, nblk;
 	Blk *b, *p;
 
 	if(f->length == 0)
 		return 0;
 	nblk = f->length / blksz;
+	odd = f->length % blksz;
 	if(nblk == 0)
 		nblk = 1;
-	else if(nblk % blksz > 0)
+	else if(odd > 0)
 		nblk++;
 
 	b = p = emalloc(sizeof(Blk) * nblk);
 	for(i = 0; i < nblk; i++, p++){
 		p->f = f;
+		p->sz = blksz;
 		p->offset = blksz * i;
 	}
+	if(odd > 0)
+		b[nblk-1].sz = odd;
 
 	*bp = b;
 	return nblk;
@@ -416,12 +422,29 @@ End:
 	return ret;
 }
 
+long
+preadn(int fd, void *buf, long nbytes, vlong offset)
+{
+	long nr, n;
+	vlong o;
+	char *p;
+	
+	nr = 0, n = nbytes, o = offset, p = buf;
+	while(nr < nbytes){
+		if((n = pread(fd, p, n, o)) < 0)
+			return -1;
+		if(n == 0)
+			break;
+		nr += n, o += n, p += n;
+	}
+	return nr;
+}
+
 void
 blkproc(void *)
 {
 	int sfd, dfd;
 	long n;
-	vlong off;
 	char *buf;
 	File *f;
 	Blk *b;
@@ -437,12 +460,11 @@ blkproc(void *)
 		f = b->f;
 		sfd = f->sfd;
 		dfd = f->dfd;
-		off = b->offset;
-		if((n = pread(sfd, buf, blksz, off)) < 0){
+		if((n = preadn(sfd, buf, b->sz, b->offset)) < 0){
 			error("can't read: %r");
 			sendul(f->errchan, ~0);
 		}
-		if(n > 0 && pwrite(dfd, buf, n, off) != n){
+		if(n > 0 && pwrite(dfd, buf, n, b->offset) != n){
 			error("can't write: %r");
 			sendul(f->errchan, ~0);
 		}
