@@ -38,6 +38,7 @@ int keepgroup = 0;
 int blksz = Blksz;
 int fileprocs = Nfileprocs;
 int blkprocs = Nblkprocs;
+long salt;
 Dir *skipdir;
 
 Channel *filechan; /* chan(File*) */
@@ -476,11 +477,14 @@ blkproc(void *)
 void
 fileproc(void *v)
 {
+	char *tmp;
+	Dir d;
 	File *f;
 	WaitGroup *wg;
 	
 	threadsetname("fileproc");
 	
+	tmp = nil;
 	wg = v;
 	for(;;){
 		f = recvp(filechan);
@@ -492,16 +496,31 @@ fileproc(void *v)
 			error("can't open: %r");
 			goto End;
 		}
-		f->dfd = create(f->dst, OWRITE, f->mode);
+		tmp = smprint("%s.clone.%ld", f->dst, salt);
+		f->dfd = create(tmp, OWRITE, f->mode);
 		if(f->dfd < 0){
 			error("can't create: %r");
 			goto End;
 		}
-
-		if(clonefile(f) > 0)
-			cloneattr(f->dfd, f);
+		if(clonefile(f) < 0 && remove(tmp) < 0){
+			error("can't remove: %r");
+			goto End;
+		}
+		cloneattr(f->dfd, f);
+		if(dirstat(f->dst) != nil && remove(f->dst) < 0){
+			error("can't remove: %r");
+			goto End;
+		}
+		nulldir(&d);
+		d.name = filename(f->dst);
+		if(dirfwstat(f->dfd, &d) < 0){
+			error("dirfwstat: %r");
+			goto End;
+		}
+		
 End:
 		filefree(f);
+		free(tmp);
 	}
 	wgdone(wg);
 }
@@ -513,6 +532,7 @@ threadmain(int argc, char *argv[])
 	char *dst, *p;
 	WaitGroup filewg;
 
+	salt = time(0);
 	ARGBEGIN{
 	case 'b':
 		blksz = strtol(EARGF(usage()), nil, 0);
