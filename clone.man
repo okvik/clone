@@ -19,17 +19,17 @@ clone \- copy files and directories
 .I Clone
 copies files and directories.
 Similar in spirit to
-.IR fcp(1)
+.IR fcp (1)
 it is a multi-process program which
 relies on
-.IR pread(2)
+.IR pread (2)
 and
-.IR pwrite(2)
+.IR pwrite (2)
 system calls to copy multiple blocks
 in parallel, speeding up the file transfer
 over high-latency links;
 in contrast to
-.IR fcp(1)
+.IR fcp (1)
 it can copy both single files and directories,
 which may be mixed on the command line.
 .PP
@@ -83,10 +83,10 @@ input / output (defaults to 4:16).
 .SH SOURCE
 .B https://bitbucket.org/k-vik/clone
 .SH SEE ALSO
-.IR fcp(1),
-.IR dircp(1),
-.IR pread(2),
-.IR pwrite(2)
+.IR fcp (1),
+.IR dircp (1),
+.IR pread (2),
+.IR pwrite (2)
 .SH BUGS
 Preserving the modification time of
 directories does not work. Attributes are
