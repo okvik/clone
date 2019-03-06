@@ -502,8 +502,9 @@ fileproc(void *v)
 			error("can't create: %r");
 			goto End;
 		}
-		if(clonefile(f) < 0 && remove(tmp) < 0){
-			error("can't remove: %r");
+		if(clonefile(f) < 0){
+			if(remove(tmp) < 0)
+				error("can't remove: %r");
 			goto End;
 		}
 		cloneattr(f->dfd, f);
