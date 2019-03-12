@@ -4,7 +4,7 @@ clone \- copy files and directories
 .SH SYNOPSYS
 .B clone
 [
-.B -gux
+.B -guxT
 ]
 [
 .B -b
@@ -80,6 +80,13 @@ simultaneous file transfers, and
 being the number of processes that do the
 input / output (defaults to 4:16).
 .PP
+The
+.I -T
+option disables the default safe-mode behaviour
+where a file is fully copied into a temporary file
+in the target directory, the target file is removed,
+and, finally, the temporary file is renamed.
+.PP
 .SH SOURCE
 .B https://bitbucket.org/k-vik/clone
 .SH SEE ALSO
@@ -96,3 +103,12 @@ this will update the parent modification
 time. Furthermore, all directories get the
 forced write permission, since not having
 one would mean no new file creation.
+.PP
+Safe-mode has to be disabled with the
+.I -T
+flag when copying files to Windows drawterm's
+.I /mnt/term;
+otherwise the Windows file system semantics
+prevent
+.IR clone (1)
+from renaming an already open file.

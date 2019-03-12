@@ -35,6 +35,7 @@ int keepmode = 0;
 int keepmtime = 0;
 int keepuser = 0;
 int keepgroup = 0;
+int notemp = 0;
 int blksz = Blksz;
 int fileprocs = Nfileprocs;
 int blkprocs = Nblkprocs;
@@ -70,7 +71,7 @@ void blkproc(void*);
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-gux] [-b blocksize] [-p fileprocs:blockprocs] from ... to\n", argv0);
+	fprint(2, "usage: %s [-guxT] [-b blocksize] [-p fileprocs:blockprocs] from ... to\n", argv0);
 	exits("usage");
 }
 
@@ -472,14 +473,14 @@ blkproc(void *)
 void
 fileproc(void *v)
 {
-	char *tmp;
+	char *dst;
 	Dir d;
 	File *f;
 	WaitGroup *wg;
 	
 	threadsetname("fileproc");
 	
-	tmp = nil;
+	dst = nil;
 	wg = v;
 	for(;;){
 		f = recvp(filechan);
@@ -491,18 +492,23 @@ fileproc(void *v)
 			error("can't open: %r");
 			goto End;
 		}
-		tmp = smprint("%s.clone.%ld", f->dst, salt);
-		f->dfd = create(tmp, OWRITE, f->mode);
+		if(notemp)
+			dst = estrdup(f->dst);
+		else
+			dst = smprint("%s.clone.%ld", f->dst, salt);
+		f->dfd = create(dst, OWRITE, f->mode);
 		if(f->dfd < 0){
 			error("can't create: %r");
 			goto End;
 		}
 		if(clonefile(f) < 0){
-			if(remove(tmp) < 0)
+			if(remove(dst) < 0)
 				error("can't remove: %r");
 			goto End;
 		}
 		cloneattr(f->dfd, f);
+		if(notemp)
+			goto End;
 		if(dirstat(f->dst) != nil && remove(f->dst) < 0){
 			error("can't remove: %r");
 			goto End;
@@ -516,7 +522,7 @@ fileproc(void *v)
 		
 End:
 		filefree(f);
-		free(tmp);
+		free(dst);
 	}
 	wgdone(wg);
 }
@@ -546,6 +552,9 @@ threadmain(int argc, char *argv[])
 		break;
 	case 'g':
 		keepgroup = 1;
+		break;
+	case 'T':
+		notemp = 1;
 		break;
 	}ARGEND;
 	if(argc < 2)
