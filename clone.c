@@ -369,13 +369,8 @@ blklist(File *f, Blk **bp)
 
 	if(f->length == 0)
 		return 0;
-	nblk = f->length / blksz;
 	odd = f->length % blksz;
-	if(nblk == 0)
-		nblk = 1;
-	else if(odd > 0)
-		nblk++;
-
+	nblk = f->length / blksz + (odd > 0);
 	b = p = emalloc(sizeof(Blk) * nblk);
 	for(i = 0; i < nblk; i++, p++){
 		p->f = f;
