@@ -480,13 +480,13 @@ fileproc(void *v)
 	
 	threadsetname("fileproc");
 	
-	dst = nil;
 	wg = v;
 	for(;;){
 		f = recvp(filechan);
 		if(f == nil)
 			break;
 
+		dst = nil;
 		f->sfd = open(f->src, OREAD);
 		if(f->sfd < 0){
 			error("can't open: %r");
