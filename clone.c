@@ -9,25 +9,29 @@ enum {
 	Blksz = 128*1024,
 };
 
-typedef struct {
+typedef struct Waitgroup Waitgroup;
+typedef struct File File;
+typedef struct Blk Blk;
+
+struct Waitgroup {
 	Rendez;
 	QLock;
 	Ref;
-} WaitGroup;
+};
 
-typedef struct {
+struct File {
 	Dir;
-	WaitGroup wg;
+	Waitgroup wg;
 	Channel *errchan;
 	char *src, *dst;
 	int sfd, dfd;
-} File;
+};
 
-typedef struct {
+struct Blk {
 	File *f;
 	long sz;
 	vlong offset;
-} Blk;
+};
 
 int errors = 0;
 int multisrc = 0;
@@ -44,29 +48,6 @@ Dir *skipdir;
 
 Channel *filechan; /* chan(File*) */
 Channel *blkchan; /* chan(Blk*) */
-
-void usage(void);
-void *emalloc(ulong);
-char *estrdup(char*);
-
-extern int cas(long *p, long ov, long nv);
-void wginit(WaitGroup*, long);
-void wgadd(WaitGroup*, long);
-void wgdone(WaitGroup*);
-void wgwait(WaitGroup*);
-
-char *filename(char*);
-int mkdir(char*, char*, Dir*, Dir**);
-int same(Dir*, Dir*);
-void clone(char*, char*);
-int cloneattr(int, Dir*);
-void clonedir(char*, char*);
-int clonefile(File*);
-File *filenew(char*, char*, Dir*);
-void filefree(File*);
-void fileproc(void*);
-vlong blklist(File*, Blk**);
-void blkproc(void*);
 
 void
 usage(void)
@@ -110,8 +91,10 @@ estrdup(char *s)
 	return p;
 }
 
+extern int cas(long *p, long ov, long nv);
+
 void
-wginit(WaitGroup *wg, long n)
+wginit(Waitgroup *wg, long n)
 {
 	memset(wg, 0, sizeof(*wg));
 	wg->l = &wg->QLock;
@@ -120,7 +103,7 @@ wginit(WaitGroup *wg, long n)
 }
 
 void
-wgadd(WaitGroup *wg, long n)
+wgadd(Waitgroup *wg, long n)
 {
 	long v;
 
@@ -130,7 +113,7 @@ wgadd(WaitGroup *wg, long n)
 }
 
 void
-wgdone(WaitGroup *wg)
+wgdone(Waitgroup *wg)
 {
 	if(decref(wg) == 0){
 		qlock(wg);
@@ -140,7 +123,7 @@ wgdone(WaitGroup *wg)
 }
 
 void
-wgwait(WaitGroup *wg)
+wgwait(Waitgroup *wg)
 {
 	qlock(wg);
 	while(wg->ref != 0)
@@ -161,39 +144,6 @@ filename(char *s)
 		return filename(s);
 	}
 	return p + 1;
-}
-
-int
-mkdir(char *src, char *dst, Dir *sd, Dir **dd)
-{
-	int fd;
-	Dir d;
-	
-	if(!(sd->mode & 0400)){
-		error("can't clone directory: '%s' permission denied", src);
-		return -1;
-	}
-	d = *sd;
-	d.mode = d.mode | DMDIR | 0200;
-	fd = create(dst, 0, d.mode);
-	if(fd < 0){
-		error("can't create directory: %r");
-		return -1;
-	}
-	if(cloneattr(fd, &d) < 0){
-		close(fd);
-		return -1;
-	}
-	if(dd){
-		*dd = dirfstat(fd);
-		if(*dd == nil){
-			error("can't stat: %r");
-			close(fd);
-			return -1;
-		}
-	}
-	close(fd);
-	return 1;
 }
 
 int
@@ -250,7 +200,7 @@ cloneattr(int fd, Dir *d)
 		return 1;
 	nulldir(&dd);
 	if(keepmode)
-		dd.mode = d->mode & DMDIR ? d->mode|0200 : d->mode;
+		dd.mode = d->mode&DMDIR ? d->mode|0200 : d->mode;
 	if(keepmtime)
 		dd.mtime = d->mtime;
 	if(keepuser)
@@ -262,6 +212,83 @@ cloneattr(int fd, Dir *d)
 		return -1;
 	}
 	return 1;
+}
+
+int
+mkdir(char *src, char *dst, Dir *sd, Dir **dd)
+{
+	int fd;
+	Dir d;
+	
+	if(!(sd->mode & 0400)){
+		error("can't clone directory: '%s' permission denied", src);
+		return -1;
+	}
+	d = *sd;
+	d.mode = d.mode | DMDIR | 0200;
+	fd = create(dst, 0, d.mode);
+	if(fd < 0){
+		error("can't create directory: %r");
+		return -1;
+	}
+	if(cloneattr(fd, &d) < 0){
+		close(fd);
+		return -1;
+	}
+	if(dd){
+		*dd = dirfstat(fd);
+		if(*dd == nil){
+			error("can't stat: %r");
+			close(fd);
+			return -1;
+		}
+	}
+	close(fd);
+	return 1;
+}
+
+void
+clonedir(char *src, char *dst)
+{
+	int fd;
+	long n;
+	char *sn, *dn;
+	Dir *dirs, *d;
+	File *f;
+
+	dirs = nil;
+
+	fd = open(src, OREAD);
+	if(fd < 0){
+		error("can't open: %r");
+		return;
+	}
+	n = dirreadall(fd, &dirs);
+	if(n < 0){
+		error("can't read directory: %r");
+		close(fd);
+		return;
+	}
+	close(fd);
+
+	for(d = dirs; n; n--, d++){
+		if(d->mode & DMDIR && same(skipdir, d))
+			continue;
+
+		sn = smprint("%s/%s", src, d->name);
+		dn = smprint("%s/%s", dst, d->name);
+		if(d->mode & DMDIR){
+			if(mkdir(sn, dn, d, nil) < 0)
+				continue;
+			clonedir(sn, dn);
+		}else{
+			f = filenew(sn, dn, d);
+			sendp(filechan, f);
+		}
+		free(sn);
+		free(dn);
+	}
+	free(dirs);
 }
 
 void
@@ -315,50 +342,6 @@ End:
 	free(dn);
 	free(sd);
 	free(dd);
-}
-
-void
-clonedir(char *src, char *dst)
-{
-	int fd;
-	long n;
-	char *sn, *dn;
-	Dir *dirs, *d;
-	File *f;
-
-	dirs = nil;
-
-	fd = open(src, OREAD);
-	if(fd < 0){
-		error("can't open: %r");
-		return;
-	}
-	n = dirreadall(fd, &dirs);
-	if(n < 0){
-		error("can't read directory: %r");
-		close(fd);
-		return;
-	}
-	close(fd);
-
-	for(d = dirs; n; n--, d++){
-		if(d->mode & DMDIR && same(skipdir, d))
-			continue;
-
-		sn = smprint("%s/%s", src, d->name);
-		dn = smprint("%s/%s", dst, d->name);
-		if(d->mode & DMDIR){
-			if(mkdir(sn, dn, d, nil) < 0)
-				continue;
-			clonedir(sn, dn);
-		}else{
-			f = filenew(sn, dn, d);
-			sendp(filechan, f);
-		}
-		free(sn);
-		free(dn);
-	}
-	free(dirs);
 }
 
 vlong
@@ -476,7 +459,7 @@ fileproc(void *v)
 	char *dst;
 	Dir d;
 	File *f;
-	WaitGroup *wg;
+	Waitgroup *wg;
 	
 	threadsetname("fileproc");
 	
@@ -532,7 +515,7 @@ threadmain(int argc, char *argv[])
 {
 	int i;
 	char *dst, *p;
-	WaitGroup filewg;
+	Waitgroup filewg;
 
 	salt = time(0);
 	ARGBEGIN{
