@@ -2,7 +2,7 @@
 
 TARG=clone
 OFILES=clone.$O
-BIN=/$objtype/bin
+BIN=$home/bin/$objtype
 MAN=/sys/man/1
 
 </sys/src/cmd/mkone
