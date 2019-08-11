@@ -7,7 +7,7 @@ MAN=/sys/man/1
 
 </sys/src/cmd/mkone
 
-install:V: $TARG.man
+install:V: man
 	
 uninstall:V:
 	rm -f $BIN/$TARG
