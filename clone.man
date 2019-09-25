@@ -88,7 +88,7 @@ in the target directory, the target file is removed,
 and, finally, the temporary file is renamed.
 .PP
 .SH SOURCE
-.B git://code.kvik.link/clone
+.B git://code.a-b.xyz/clone
 .SH SEE ALSO
 .IR fcp (1),
 .IR dircp (1),
