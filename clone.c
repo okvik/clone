@@ -263,32 +263,29 @@ clonedir(char *src, char *dst)
 		error("can't open: %r");
 		return;
 	}
-	n = dirreadall(fd, &dirs);
-	if(n < 0){
-		error("can't read directory: %r");
-		close(fd);
-		return;
-	}
-	close(fd);
-
-	for(d = dirs; n; n--, d++){
-		if(d->mode & DMDIR && same(skipdir, d))
-			continue;
-
-		sn = smprint("%s/%s", src, d->name);
-		dn = smprint("%s/%s", dst, d->name);
-		if(d->mode & DMDIR){
-			if(mkdir(sn, dn, d, nil) < 0)
+	while((n = dirread(fd, &dirs)) > 0){
+		for(d = dirs; n; n--, d++){
+			if(d->mode & DMDIR && same(skipdir, d))
 				continue;
-			clonedir(sn, dn);
-		}else{
-			f = filenew(sn, dn, d);
-			sendp(filechan, f);
+
+			sn = smprint("%s/%s", src, d->name);
+			dn = smprint("%s/%s", dst, d->name);
+			if(d->mode & DMDIR){
+				if(mkdir(sn, dn, d, nil) < 0)
+					continue;
+				clonedir(sn, dn);
+			}else{
+				f = filenew(sn, dn, d);
+				sendp(filechan, f);
+			}
+			free(sn);
+			free(dn);
 		}
-		free(sn);
-		free(dn);
+		free(dirs);
 	}
-	free(dirs);
+	if(n < 0)
+		error("can't read directory: %r");
+	close(fd);
 }
 
 void
