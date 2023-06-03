@@ -248,6 +248,52 @@ mkdir(char *src, char *dst, Dir *sd, Dir **dd)
 }
 
 void
+dmtimeperms(char *src, char *dst)
+{
+	int fd;
+	long n;
+	char *sn, *dn;
+	Dir *dirs, *d, dd, *s;
+
+	dirs = nil;
+
+	fd = open(src, OREAD);
+	if(fd < 0){
+		error("can't open: %r");
+		return;
+	}
+	while((n = dirread(fd, &dirs)) > 0){
+		for(d = dirs; n; n--, d++){
+			sn = smprint("%s/%s", src, d->name);
+			dn = smprint("%s/%s", dst, d->name);
+			if(d->mode & DMDIR)
+				dmtimeperms(sn, dn);
+			free(sn);
+			free(dn);
+		}
+		free(dirs);
+	}
+	if(n < 0)
+		error("can't read directory: %r");
+	close(fd);
+
+	d = dirstat(src);
+ 	if(keepmtime && d->mode&DMDIR){
+		s = dirstat(dst);
+		if(s->mode&DMDIR){
+			nulldir(&dd);
+			if(keepmode)
+				dd.mode = d->mode;
+			if(keepmtime)
+				dd.mtime = d->mtime;
+			if(dirwstat(dst, &dd) < 0)
+				error("can't dirwstat: %r");
+		}
+	}
+	free(d);
+}
+
+void
 clonedir(char *src, char *dst)
 {
 	int fd;
@@ -555,7 +601,11 @@ threadmain(int argc, char *argv[])
 		clone(argv[i], dst);
 	chanclose(filechan);
 	wgwait(&filewg);
-
+	if(!errors)
+		/* Update all destination directory mtimes */
+		for(i = 0; i < argc -1; i++)
+			if(access(dst, AEXIST) >= 0)
+				dmtimeperms(argv[i], dst);
 	if(errors)
 		threadexitsall("errors");
 	threadexitsall(nil);

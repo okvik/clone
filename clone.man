@@ -94,15 +94,6 @@ and, finally, the temporary file is renamed.
 .IR dircp (1),
 .IR pread (2),
 .IR pwrite (2)
-.SH BUGS
-Preserving the modification time of
-directories does not work. Attributes are
-cloned at directory creation time; meaning, if
-there's files to be copied in this directory,
-this will update the parent modification
-time. Furthermore, all directories get the
-forced write permission, since not having
-one would mean no new file creation.
 .PP
 Safe-mode has to be disabled with the
 .I -T
