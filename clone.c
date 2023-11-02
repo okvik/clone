@@ -35,10 +35,7 @@ struct Blk {
 
 int errors = 0;
 int multisrc = 0;
-int keepmode = 0;
-int keepmtime = 0;
-int keepuser = 0;
-int keepgroup = 0;
+int archive = 0;
 int notemp = 0;
 int blksz = Blksz;
 int fileprocs = Nfileprocs;
@@ -52,7 +49,7 @@ Channel *blkchan; /* chan(Blk*) */
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-guxT] [-b blocksize] [-p fileprocs:blockprocs] from ... to\n", argv0);
+	fprint(2, "usage: %s [-aT] [-b blocksize] [-p fileprocs:blockprocs] from ... to\n", argv0);
 	exits("usage");
 }
 
@@ -196,17 +193,12 @@ cloneattr(int fd, Dir *d)
 {
 	Dir dd;
 
-	if(!(keepmode || keepuser || keepgroup || keepmtime))
+	if(!(archive))
 		return 1;
 	nulldir(&dd);
-	if(keepmode)
-		dd.mode = d->mode&DMDIR ? d->mode|0200 : d->mode;
-	if(keepmtime)
-		dd.mtime = d->mtime;
-	if(keepuser)
-		dd.uid = d->uid;
-	if(keepgroup)
-		dd.gid = d->gid;
+	dd.mode = d->mode&DMDIR ? d->mode|0200 : d->mode;
+	dd.mtime = d->mtime;
+	dd.gid = d->gid;
 	if(dirfwstat(fd, &dd) < 0){
 		error("can't wstat: %r");
 		return -1;
@@ -278,14 +270,12 @@ dmtimeperms(char *src, char *dst)
 	close(fd);
 
 	d = dirstat(src);
- 	if(keepmtime && d->mode&DMDIR){
+ 	if(archive && d->mode&DMDIR){
 		s = dirstat(dst);
 		if(s->mode&DMDIR){
 			nulldir(&dd);
-			if(keepmode)
-				dd.mode = d->mode;
-			if(keepmtime)
-				dd.mtime = d->mtime;
+			dd.mode = d->mode;
+			dd.mtime = d->mtime;
 			if(dirwstat(dst, &dd) < 0)
 				error("can't dirwstat: %r");
 		}
@@ -570,14 +560,8 @@ threadmain(int argc, char *argv[])
 		*p++ = 0;
 		blkprocs = strtol(p, nil, 0);
 		break;
-	case 'x':
-		keepmode = keepmtime = 1;
-		break;
-	case 'u':
-		keepuser = 1;
-		break;
-	case 'g':
-		keepgroup = 1;
+	case 'a':
+		archive = 1;
 		break;
 	case 'T':
 		notemp = 1;
